@@ -2,11 +2,6 @@ import colors from 'vuetify/es5/util/colors'
 
 export default {
   /*
-   ** Nuxt rendering mode
-   ** See https://nuxtjs.org/api/configuration-mode
-   */
-  mode: 'universal',
-  /*
    ** Nuxt target
    ** See https://nuxtjs.org/api/configuration-target
    */
@@ -32,12 +27,15 @@ export default {
   /*
    ** Global CSS
    */
-  css: [],
+  css: ['@/assets/css/app.css'],
   /*
    ** Plugins to load before mounting the App
    ** https://nuxtjs.org/guide/plugins
    */
-  plugins: [],
+  plugins: [
+    '@/plugins/vue-iframe.js',
+    { src: '@/plugins/vuex-persist', ssr: false },
+  ],
   /*
    ** Auto import components
    ** See https://nuxtjs.org/api/configuration-components
@@ -53,6 +51,11 @@ export default {
     '@nuxtjs/stylelint-module',
     '@nuxtjs/vuetify',
   ],
+  serverMiddleware: [
+    // Will register file from project api directory to handle /api/* requires
+    { path: '/api/flickr/request', handler: '~/api/flickr/request.js' },
+    { path: '/api/flickr/verify', handler: '~/api/flickr/verify.js' },
+  ],
   /*
    ** Nuxt.js modules
    */
@@ -65,7 +68,9 @@ export default {
    ** Axios module configuration
    ** See https://axios.nuxtjs.org/options
    */
-  axios: {},
+  axios: {
+    baseURL: process.env.API_URL,
+  },
   /*
    ** vuetify module configuration
    ** https://github.com/nuxt-community/vuetify-module
@@ -87,9 +92,19 @@ export default {
       },
     },
   },
+  server: {
+    port: 3001, // default: 3000
+    host: 'localhost', // default: localhost
+  },
   /*
    ** Build configuration
    ** See https://nuxtjs.org/api/configuration-build/
    */
-  build: {},
+  build: {
+    extend(config, ctx) {
+      if (ctx.isDev) {
+        config.devtool = ctx.isClient ? 'source-map' : 'inline-source-map'
+      }
+    },
+  },
 }
