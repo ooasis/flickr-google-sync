@@ -51,7 +51,11 @@
                   </div>
                 </v-card-text>
                 <v-card-actions>
-                  <v-btn text color="deep-purple accent-4">
+                  <v-btn
+                    text
+                    color="deep-purple accent-4"
+                    @click="gapiRequestAuth"
+                  >
                     Login Google Photo
                   </v-btn>
                 </v-card-actions>
@@ -67,7 +71,13 @@
                   </div>
                 </v-card-text>
                 <v-card-actions>
-                  <v-btn text color="deep-purple accent-4"> Start Sync! </v-btn>
+                  <v-btn
+                    text
+                    color="deep-purple accent-4"
+                    @click="flickrFetchPhotos"
+                  >
+                    Start Sync!
+                  </v-btn>
                 </v-card-actions>
               </v-card>
             </v-stepper-content>
@@ -79,6 +89,8 @@
 </template>
 
 <script>
+// import gapi from 'gapi'
+
 export default {
   data() {
     return {
@@ -88,6 +100,9 @@ export default {
   mounted() {
     if (this.$store.state.flickr.accessToken) {
       this.curStep = 2
+    }
+    if (this.$auth.strategies.google.token.get()) {
+      this.curStep = 3
     }
   },
   methods: {
@@ -100,6 +115,27 @@ export default {
         requestTokenSecret,
       })
       window.location = authRequestUrl
+    },
+    async gapiRequestAuth() {
+      await this.$auth.loginWith('google')
+    },
+    async flickrFetchPhotoSets() {
+      const { accessToken, accessTokenSecret } = this.$store.state.flickr
+      const {
+        data: { photoSets },
+      } = await this.$axios.get(`/api/flickr/photosets`, {
+        params: { accessToken, accessTokenSecret },
+      })
+      console.debug(`Fetched photo sets: %o`, photoSets)
+    },
+    async flickrFetchPhotos() {
+      const { accessToken, accessTokenSecret } = this.$store.state.flickr
+      const photsets = ['72157632377473843', '72157632368106353'].join(':')
+      const flickrUser = this.$store.state.flickr.userId
+      const { data: photoSets } = await this.$axios.get(`/api/flickr/photos`, {
+        params: { accessToken, accessTokenSecret, photsets, flickrUser },
+      })
+      console.debug(`Fetched photos: %o`, photoSets)
     },
   },
 }

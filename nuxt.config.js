@@ -11,8 +11,8 @@ export default {
    ** See https://nuxtjs.org/api/configuration-head
    */
   head: {
-    titleTemplate: '%s - ' + process.env.npm_package_name,
-    title: process.env.npm_package_name || '',
+    titleTemplate: '%s - ' + process.env.ENV,
+    title: 'Flickr Sync.',
     meta: [
       { charset: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
@@ -55,6 +55,8 @@ export default {
     // Will register file from project api directory to handle /api/* requires
     { path: '/api/flickr/request', handler: '~/api/flickr/request.js' },
     { path: '/api/flickr/verify', handler: '~/api/flickr/verify.js' },
+    { path: '/api/flickr/photosets', handler: '~/api/flickr/photosets.js' },
+    { path: '/api/flickr/photos', handler: '~/api/flickr/photos.js' },
   ],
   /*
    ** Nuxt.js modules
@@ -63,6 +65,7 @@ export default {
     // Doc: https://axios.nuxtjs.org/usage
     '@nuxtjs/axios',
     '@nuxtjs/pwa',
+    '@nuxtjs/auth-next',
   ],
   /*
    ** Axios module configuration
@@ -70,6 +73,36 @@ export default {
    */
   axios: {
     baseURL: process.env.API_URL,
+  },
+  auth: {
+    'vuex.namespace': 'googleauth',
+    strategies: {
+      google: {
+        scheme: 'oauth2',
+        endpoints: {
+          authorization: 'https://accounts.google.com/o/oauth2/auth',
+          userInfo: 'https://www.googleapis.com/oauth2/v3/userinfo',
+        },
+        token: {
+          property: 'access_token',
+          type: 'Bearer',
+          maxAge: 1800
+        },
+        refreshToken: {
+          property: 'refresh_token',
+          maxAge: 60 * 60 * 24 * 30
+        },
+        responseType: 'token',
+        accessType: 'online',
+        redirectUri: `${process.env.API_URL}/auth/google/verify`,
+        scope: ['profile'],
+        state: Date.now,
+        codeChallengeMethod: '',
+        responseMode: '',
+        acrValues: '',
+        clientId: '609737535508-8i8ucl7kd5qn0jmtv524t7mvbe13trrl.apps.googleusercontent.com',
+      },
+    },
   },
   /*
    ** vuetify module configuration
