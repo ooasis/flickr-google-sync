@@ -34,7 +34,8 @@ export default {
    */
   plugins: [
     { src: '~/plugins/inject-ww', ssr: false },
-    { src: '@/plugins/vuex-persist', ssr: false }],
+    { src: '@/plugins/vuex-persist', ssr: false },
+  ],
   /*
    ** Auto import components
    ** See https://nuxtjs.org/api/configuration-components
@@ -64,7 +65,7 @@ export default {
     // Doc: https://axios.nuxtjs.org/usage
     '@nuxtjs/axios',
     '@nuxtjs/pwa',
-    '@nuxtjs/auth-next',
+    '@nuxtjs/auth',
   ],
   /*
    ** Axios module configuration
@@ -74,32 +75,14 @@ export default {
     baseURL: process.env.API_URL,
   },
   auth: {
-    'vuex.namespace': 'googleauth',
+    redirect: {
+      callback: `/auth/google/verify`,
+      logout: `/auth/google/logout`,
+    },
     strategies: {
       google: {
-        scheme: 'oauth2',
-        endpoints: {
-          authorization: 'https://accounts.google.com/o/oauth2/auth',
-          userInfo: 'https://www.googleapis.com/oauth2/v3/userinfo',
-        },
-        token: {
-          property: 'access_token',
-          type: 'Bearer',
-          maxAge: 1800,
-        },
-        refreshToken: {
-          property: 'refresh_token',
-          maxAge: 60 * 60 * 24 * 30,
-        },
-        responseType: 'token',
-        accessType: 'online',
-        redirectUri: `${process.env.API_URL}/auth/google/verify`,
-        scope: ['profile'],
-        state: Date.now,
-        codeChallengeMethod: '',
-        responseMode: '',
-        acrValues: '',
-        clientId:
+        scope: ['https://www.googleapis.com/auth/photoslibrary', 'profile'],
+        client_id:
           '609737535508-8i8ucl7kd5qn0jmtv524t7mvbe13trrl.apps.googleusercontent.com',
       },
     },

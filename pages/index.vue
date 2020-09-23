@@ -74,6 +74,13 @@
                   <v-btn text color="deep-purple accent-4" @click="syncPhoto">
                     Start Sync!
                   </v-btn>
+                  <v-btn
+                    text
+                    color="deep-purple accent-4"
+                    @click="googleLogout"
+                  >
+                    Logout Google
+                  </v-btn>
                 </v-card-actions>
               </v-card>
             </v-stepper-content>
@@ -95,11 +102,14 @@ export default {
     if (this.$store.state.flickr.accessToken) {
       this.curStep = 2
     }
-    if (this.$auth.strategies.google.token.get()) {
+    if (this.$auth.loggedIn) {
       this.curStep = 3
     }
   },
   methods: {
+    async googleLogout() {
+      await this.$auth.logout()
+    },
     async flickrRequestAuth() {
       const {
         data: { authRequestUrl, requestToken, requestTokenSecret },
@@ -135,6 +145,7 @@ export default {
       const photoId = '8323753743'
       const photoUrl =
         'https://live.staticflickr.com/8075/8323753743_e5a1079c4d_o.jpg'
+      const googleAccessToken = this.$auth.getToken('google')
 
       const worker = this.$worker.createWorker()
       worker.onmessage = (event) => {
@@ -142,7 +153,46 @@ export default {
           `Sync'ed photo: ${photoId} from ${photoUrl}. Result: ${event.data}`
         )
       }
-      worker.postMessage({ photoId, photoUrl })
+      worker.postMessage({ photoId, photoUrl, googleAccessToken })
+    },
+    async syncPhoto2() {
+      const googleUploadUrl = 'https://photoslibrary.googleapis.com/v1/uploads'
+      const photoId = '8323753743'
+      const photoUrl =
+        'https://live.staticflickr.com/8075/8323753743_e5a1079c4d_o.jpg'
+      const googleAccessToken = this.$auth.getToken('google')
+
+      console.debug(`Sync'ing photo: ${photoId} from ${photoUrl}`)
+      const downloadResp = await fetch(photoUrl)
+      if (!downloadResp.ok) {
+        const downloadErr = await downloadResp.text()
+        console.error(`Failed to download photo: %o`, downloadErr)
+        return false
+      }
+
+      const image = await downloadResp.blob()
+      console.debug(`Raw photo: ${image.size} ${image.type}`)
+
+      // await this.$auth.refreshTokens()
+
+      const uploadResp = await fetch(googleUploadUrl, {
+        method: 'POST',
+        body: image,
+        headers: {
+          Authorization: googleAccessToken,
+          'Content-Type': 'application/octet-stream',
+          'X-Goog-Upload-Content-Type': 'image/jpeg',
+          'X-Goog-Upload-Protocol': 'raw',
+        },
+      })
+      if (!uploadResp.ok) {
+        const uploadErr = await uploadResp.text()
+        console.error(`Failed to upload photo: %o`, uploadErr)
+        return false
+      }
+
+      const uploadToken = await uploadResp.text()
+      console.debug(`Uploaded photo aand get token back: ${uploadToken}`)
     },
   },
 }

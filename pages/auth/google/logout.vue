@@ -2,7 +2,7 @@
   <v-container fluid>
     <v-row>
       <v-col cols="12">
-        <h3>Waiting to verify Google authorization...</h3>
+        <h3>Logout Google...</h3>
       </v-col>
     </v-row>
   </v-container>
