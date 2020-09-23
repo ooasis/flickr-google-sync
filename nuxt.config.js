@@ -33,9 +33,8 @@ export default {
    ** https://nuxtjs.org/guide/plugins
    */
   plugins: [
-    '@/plugins/vue-iframe.js',
-    { src: '@/plugins/vuex-persist', ssr: false },
-  ],
+    { src: '~/plugins/inject-ww', ssr: false },
+    { src: '@/plugins/vuex-persist', ssr: false }],
   /*
    ** Auto import components
    ** See https://nuxtjs.org/api/configuration-components
@@ -86,11 +85,11 @@ export default {
         token: {
           property: 'access_token',
           type: 'Bearer',
-          maxAge: 1800
+          maxAge: 1800,
         },
         refreshToken: {
           property: 'refresh_token',
-          maxAge: 60 * 60 * 24 * 30
+          maxAge: 60 * 60 * 24 * 30,
         },
         responseType: 'token',
         accessType: 'online',
@@ -100,7 +99,8 @@ export default {
         codeChallengeMethod: '',
         responseMode: '',
         acrValues: '',
-        clientId: '609737535508-8i8ucl7kd5qn0jmtv524t7mvbe13trrl.apps.googleusercontent.com',
+        clientId:
+          '609737535508-8i8ucl7kd5qn0jmtv524t7mvbe13trrl.apps.googleusercontent.com',
       },
     },
   },
@@ -138,6 +138,18 @@ export default {
       if (ctx.isDev) {
         config.devtool = ctx.isClient ? 'source-map' : 'inline-source-map'
       }
+
+      if (ctx.isClient) {
+        // web workers are only available client-side
+        config.module.rules.push({
+          test: /\.worker\.js$/, // this will pick up all .js files that ends with ".worker.js"
+          loader: 'worker-loader',
+          exclude: /(node_modules)/,
+        })
+      }
+
+      // @see https://github.com/nuxt/nuxt.js/pull/3480#issuecomment-404150387
+      config.output.globalObject = `(typeof self !== 'undefined' ? self : this)`
     },
   },
 }

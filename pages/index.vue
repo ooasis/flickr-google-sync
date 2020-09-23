@@ -71,11 +71,7 @@
                   </div>
                 </v-card-text>
                 <v-card-actions>
-                  <v-btn
-                    text
-                    color="deep-purple accent-4"
-                    @click="flickrFetchPhotos"
-                  >
+                  <v-btn text color="deep-purple accent-4" @click="syncPhoto">
                     Start Sync!
                   </v-btn>
                 </v-card-actions>
@@ -89,8 +85,6 @@
 </template>
 
 <script>
-// import gapi from 'gapi'
-
 export default {
   data() {
     return {
@@ -136,6 +130,19 @@ export default {
         params: { accessToken, accessTokenSecret, photsets, flickrUser },
       })
       console.debug(`Fetched photos: %o`, photoSets)
+    },
+    syncPhoto() {
+      const photoId = '8323753743'
+      const photoUrl =
+        'https://live.staticflickr.com/8075/8323753743_e5a1079c4d_o.jpg'
+
+      const worker = this.$worker.createWorker()
+      worker.onmessage = (event) => {
+        console.debug(
+          `Sync'ed photo: ${photoId} from ${photoUrl}. Result: ${event.data}`
+        )
+      }
+      worker.postMessage({ photoId, photoUrl })
     },
   },
 }

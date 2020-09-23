@@ -21,7 +21,6 @@
     "gapi": "^0.0.3",
     "nuxt": "^2.14.0",
     "url": "^0.11.0",
-    "vue-friendly-iframe": "^0.18.0",
     "vuex-persist": "^3.1.0"
   },
   "devDependencies": {
@@ -42,6 +41,7 @@
     "stylelint": "^13.6.1",
     "stylelint-config-prettier": "^8.0.2",
     "stylelint-config-standard": "^20.0.0",
-    "vue-jest": "^3.0.4"
+    "vue-jest": "^3.0.4",
+    "worker-loader": "^3.0.3"
   }
 }
