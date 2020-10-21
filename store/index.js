@@ -1,6 +1,6 @@
 export const state = () => ({
   flickr: {},
-  googlePhotot: {},
+  googlePhoto: {},
 })
 
 export const mutations = {

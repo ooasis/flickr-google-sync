@@ -1,3 +1,5 @@
+import path from 'path'
+import fs from 'fs'
 import colors from 'vuetify/es5/util/colors'
 
 export default {
@@ -77,11 +79,11 @@ export default {
   auth: {
     redirect: {
       callback: `/auth/google/verify`,
-      logout: `/auth/google/logout`,
     },
     strategies: {
       google: {
         scope: ['https://www.googleapis.com/auth/photoslibrary', 'profile'],
+        // endpoints: { logout: `/auth/google/logout` },
         client_id:
           '609737535508-8i8ucl7kd5qn0jmtv524t7mvbe13trrl.apps.googleusercontent.com',
       },
@@ -109,8 +111,12 @@ export default {
     },
   },
   server: {
-    port: 3001, // default: 3000
+    port: 3011, // default: 3000
     host: 'localhost', // default: localhost
+    https: {
+      key: fs.readFileSync(path.resolve(__dirname, 'config', 'https.key')),
+      cert: fs.readFileSync(path.resolve(__dirname, 'config', 'https.crt')),
+    },
   },
   /*
    ** Build configuration

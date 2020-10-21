@@ -1,4 +1,6 @@
 const googleUploadUrl = 'https://photoslibrary.googleapis.com/v1/uploads'
+const googleUploadTagUrl =
+  'https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate'
 
 self.addEventListener('message', async (event) => {
   console.log('worker', event.data)
@@ -7,7 +9,7 @@ self.addEventListener('message', async (event) => {
   self.postMessage({ status: result })
 })
 
-const syncIt = async ({ photoId, photoUrl, googleAccessToken }) => {
+const syncIt = async ({ photoId, photoUrl, photoDesc, googleAccessToken }) => {
   console.debug(`Sync'ing photo: ${photoId} from ${photoUrl}`)
 
   const downloadResp = await fetch(photoUrl)
@@ -29,7 +31,7 @@ const syncIt = async ({ photoId, photoUrl, googleAccessToken }) => {
       'X-Goog-Upload-Content-Type': 'image/jpeg',
       'X-Goog-Upload-Protocol': 'raw',
     },
-    mode: "cors"
+    mode: 'cors',
   })
   if (!uploadResp.ok) {
     const uploadErr = await uploadResp.text()
@@ -38,7 +40,34 @@ const syncIt = async ({ photoId, photoUrl, googleAccessToken }) => {
   }
 
   const uploadToken = await uploadResp.text()
-  console.debug(`Uploaded photo aand get token back: ${uploadToken}`)
+  console.debug(`Uploaded photo and get token back: ${uploadToken}`)
 
-  return true
+  const tag = {
+    newMediaItems: [
+      {
+        description: photoDesc,
+        simpleMediaItem: {
+          fileName: photoId,
+          uploadToken,
+        },
+      },
+    ],
+  }
+  const tagResp = await fetch(googleUploadTagUrl, {
+    method: 'POST',
+    body: JSON.stringify(tag),
+    headers: {
+      Authorization: googleAccessToken,
+      'Content-Type': 'application/json',
+    },
+  })
+  if (!tagResp.ok) {
+    const tagErr = await tagResp.text()
+    console.error(`Failed to tag photo: %o`, tagErr)
+    return false
+  }
+
+  const tagResult = await tagResp.text()
+  console.debug(`Tag photo and get token back: ${tagResult}`)
+  return tagResult
 }

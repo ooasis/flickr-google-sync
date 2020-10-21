@@ -14,7 +14,7 @@ export default {
 
   // /auth/google/verify#state=SSclwwhBWbG-PNUWlPdFI&access_token=ya29.a0AfH6...Wravts&token_type=Bearer&expires_in=3599&scope=email%20https://www.googleapis.com/auth/userinfo.email%20openid&authuser=0&prompt=consent
   mounted() {
-    this.$router.replace('/')
+    // this.$router.replace('/')
   },
 }
 </script>

@@ -1,5 +1,6 @@
-import Flickr from 'flickr-sdk'
+/* eslint-disable node/no-deprecated-api */
 import url from 'url'
+import Flickr from 'flickr-sdk'
 
 export default async function (req, res, next) {
   // /api/flickr/verify?token=${token}&secret=${secret}&verifier=${verifier}

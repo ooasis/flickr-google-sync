@@ -1,10 +1,11 @@
-import Flickr from 'flickr-sdk'
+/* eslint-disable node/no-deprecated-api */
 import url from 'url'
+import Flickr from 'flickr-sdk'
 
 export default async function (req, res, next) {
   const { accessToken, accessTokenSecret } = url.parse(req.url, true).query
 
-  var flickr = new Flickr(
+  const flickr = new Flickr(
     Flickr.OAuth.createPlugin(
       process.env.FLICKR_CONSUMER_KEY,
       process.env.FLICKR_CONSUMER_SECRET,

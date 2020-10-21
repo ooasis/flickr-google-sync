@@ -1,5 +1,6 @@
-import Flickr from 'flickr-sdk'
+/* eslint-disable node/no-deprecated-api */
 import url from 'url'
+import Flickr from 'flickr-sdk'
 
 export default async function (req, res, next) {
   const { accessToken, accessTokenSecret, photsets, flickrUser } = url.parse(
@@ -7,7 +8,7 @@ export default async function (req, res, next) {
     true
   ).query
 
-  var flickr = new Flickr(
+  const flickr = new Flickr(
     Flickr.OAuth.createPlugin(
       process.env.FLICKR_CONSUMER_KEY,
       process.env.FLICKR_CONSUMER_SECRET,
@@ -18,6 +19,7 @@ export default async function (req, res, next) {
 
   const photoSets = await Promise.all(
     photsets.split(':').map(async (photosetId) => {
+      console.debug(`About to fetch photos in photoset ${photosetId}`)
       const {
         body: { photoset: resp },
       } = await flickr.photosets.getPhotos({
@@ -31,9 +33,9 @@ export default async function (req, res, next) {
         `Returned ${resp.total} photos for photo set ${resp.title} (max: ${resp.perpage})`
       )
       const photos = resp.photo.map((photo) => {
-        const { id, title, url_o } = photo
+        const { id, title, url_o: url } = photo
 
-        return { id, title, url_o }
+        return { id, title, url }
       })
 
       return { photosetId, photos }
