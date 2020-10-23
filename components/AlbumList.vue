@@ -4,7 +4,7 @@
       v-model="selectedAlbum"
       :headers="headers"
       :items="albums"
-      :items-per-page="5"
+      :items-per-page="10"
       item-key="id"
       show-select
       :single-select="singleSelect"

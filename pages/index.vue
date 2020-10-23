@@ -52,7 +52,7 @@
                   color="grey lighten-1"
                 >
                   <v-card-text>
-                    <p class="display-1 text--primary">Choose Album</p>
+                    <p class="display-1 text--primary">Choose a Flickr Album</p>
                     <div class="text--primary">
                       <AlbumList
                         :onSelectedAlbum="chooseFlickrAlbum"
@@ -61,7 +61,12 @@
                     </div>
                   </v-card-text>
                   <v-card-actions>
-                    <v-btn text color="deep-purple accent-4" @click="nextStep">
+                    <v-btn
+                      text
+                      color="deep-purple accent-4"
+                      :disabled="!flickrAlbumSelected()"
+                      @click="nextStep"
+                    >
                       Next
                     </v-btn>
                   </v-card-actions>
@@ -97,7 +102,7 @@
                   color="grey lighten-1"
                 >
                   <v-card-text>
-                    <p class="display-1 text--primary">Choose Album</p>
+                    <p class="display-1 text--primary">Choose a Google Album</p>
                     <div class="text--primary">
                       <AlbumList
                         :onSelectedAlbum="chooseGoogleAlbum"
@@ -113,7 +118,12 @@
                     >
                       Previous
                     </v-btn>
-                    <v-btn text color="deep-purple accent-4" @click="nextStep">
+                    <v-btn
+                      text
+                      color="deep-purple accent-4"
+                      :disabled="!googleAlbumSelected()"
+                      @click="nextStep"
+                    >
                       Next
                     </v-btn>
                   </v-card-actions>
@@ -161,55 +171,38 @@ export default {
   data() {
     return {
       curStep: 1,
-      flickrAlbum: {
-        id: '72157715562751106',
-        photos: 96,
-        title: 'baptism1',
-        description:
-          'Uploaded from Mac &quot;Pictures/baptism1&quot; on cxhsung-m',
-      },
-      flickrAlbums: [
-        {
-          id: '72157715562751106',
-          photos: 96,
-          title: 'baptism1',
-          description:
-            'Uploaded from Mac &quot;Pictures/baptism1&quot; on cxhsung-m',
-        },
-      ],
+      flickrAlbum: null,
+      flickrAlbums: [],
       googleAlbum: null,
       googleAlbums: [],
     }
   },
-  async mounted() {
-    if (!this.flickrSignedIn()) {
-      this.curStep = 1
-    } else if (!this.flickrAlbumSelected()) {
-      if (this.flickrAlbums.length === 0) {
-        this.flickrAlbums = await this.flickrFetchPhotoSets()
-      }
-      this.curStep = 1
-    } else if (!this.googleSignedIn()) {
-      this.curStep = 2
-    } else if (!this.googleAlbumSelected()) {
-      if (this.googleAlbums.length === 0) {
-        this.googleAlbums = await this.googleFetchAlbums()
-      }
-      this.curStep = 2
-    } else {
-      this.curStep = 3
-    }
+  async beforeMount() {
+    await this.configStep()
   },
   methods: {
     // util
-    previousStep() {
+    async previousStep() {
       if (this.curStep > 1) {
         this.curStep -= 1
       }
+      await this.configStep()
     },
-    nextStep() {
+    async nextStep() {
       if (this.curStep < 3) {
         this.curStep += 1
+      }
+      await this.configStep()
+    },
+    async configStep() {
+      if (this.curStep === 1) {
+        if (this.flickrSignedIn() && this.flickrAlbums.length === 0) {
+          this.flickrAlbums = await this.flickrFetchPhotoSets()
+        }
+      } else if (this.curStep === 2) {
+        if (this.googleSignedIn() && this.googleAlbums.length === 0) {
+          this.googleAlbums = await this.googleFetchAlbums()
+        }
       }
     },
 
@@ -232,7 +225,11 @@ export default {
       return !!this.flickrAlbum
     },
     chooseFlickrAlbum(e) {
-      this.flickrAlbum = e.item
+      if (e.value) {
+        this.flickrAlbum = e.item
+      } else {
+        this.flickrAlbum = null
+      }
     },
     async flickrFetchPhotoSets() {
       const { accessToken, accessTokenSecret } = this.$store.state.flickr
@@ -248,7 +245,6 @@ export default {
     // step 2 related
     async googleLogout() {
       await this.$auth.logout()
-      console.log('logged out')
     },
     async gapiRequestAuth() {
       await this.$auth.loginWith('google')
@@ -260,33 +256,50 @@ export default {
       return !!this.googleAlbum
     },
     chooseGoogleAlbum(e) {
-      this.googleAlbum = e.item
+      if (e.value) {
+        this.googleAlbum = e.item
+      } else {
+        this.googleAlbum = null
+      }
     },
     async googleFetchAlbums() {
       const albumUrl = 'https://photoslibrary.googleapis.com/v1/albums'
       const googleAccessToken = this.$auth.getToken('google')
-      const resp = await fetch(albumUrl, {
-        headers: {
-          Authorization: googleAccessToken,
-        },
-      })
-      if (!resp.ok) {
-        const err = await resp.text()
-        console.error(`Failed to fetch photo albums: %o`, err)
-        this.$auth.logout()
-      } else {
-        const { albums } = await resp.json()
-        if (albums) {
-          return albums.map((r) => {
-            return {
-              id: r.id,
-              title: r.title,
-              description: '',
-              photos: r.mediaItemsCount,
-            }
-          })
+      let allAlbums = []
+      let pageToken
+
+      do {
+        let url = albumUrl
+        if (pageToken) {
+          url = `${url}?pageToken=${pageToken}`
         }
-      }
+        const resp = await fetch(url, {
+          headers: {
+            Authorization: googleAccessToken,
+          },
+        })
+
+        if (!resp.ok) {
+          const err = await resp.text()
+          console.error(`Failed to fetch google photo albums: %o`, err)
+          this.$auth.logout()
+        } else {
+          const { albums, nextPageToken } = await resp.json()
+          if (albums) {
+            const albumsThisBatch = albums.map((r) => {
+              return {
+                id: r.id,
+                title: r.title,
+                description: '',
+                photos: r.mediaItemsCount,
+              }
+            })
+            pageToken = nextPageToken
+            allAlbums = [...allAlbums, ...albumsThisBatch]
+          }
+        }
+      } while (pageToken)
+      return allAlbums
     },
 
     // step 3 related
