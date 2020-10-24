@@ -1,14 +1,14 @@
 <template>
-  <v-card class="mb-12" color="grey lighten-1" :height="height">
+  <v-card class="mb-12" color="grey lighten-1" :min-height="height">
     <v-card-actions>
-      <v-btn text color="deep-purple accent-4" @click="$emit('input', 2)">
+      <v-btn text color="deep-purple accent-4" @click="moveStep(-1)">
         Previous
       </v-btn>
       <v-btn
         text
         color="deep-purple accent-4"
         :disabled="!albumSelected()"
-        @click="$emit('input', 4)"
+        @click="moveStep(1)"
       >
         Next
       </v-btn>
@@ -40,6 +40,18 @@
         class="elevation-1"
         @item-selected="chooseAlbum"
       >
+        <template v-slot:[`item.id`]="{ item }">
+          <div class="d-flex flex-row">
+            <v-img
+              v-for="thumbnail in item.thumbnails.filter((t) => !!t)"
+              :key="thumbnail.index"
+              max-height="80"
+              max-width="80"
+              class="ma-2"
+              :src="thumbnail.url"
+            ></v-img>
+          </div>
+        </template>
       </v-data-table>
     </v-card>
   </v-card>
@@ -71,12 +83,17 @@ export default {
           sortable: false,
           value: 'title',
         },
-        { text: '', value: 'description' },
+        { text: '', value: 'id' },
       ],
       search: null,
+      loadThumbnails: false,
     }
   },
   methods: {
+    moveStep(delta) {
+      this.loadThumbnails = false
+      this.$emit('input', this.value + delta)
+    },
     albumSelected() {
       return !!this.$store.state.googlePhoto.selected
     },
@@ -120,7 +137,68 @@ export default {
           }
         }
       } while (pageToken)
+      allAlbums.forEach((r) => {
+        r.thumbnails = Array.from({ length: Math.min(r.photos, 5) }).map(
+          (r, index) => {
+            return {
+              index,
+              name: '',
+              url: null,
+            }
+          }
+        )
+      })
       this.$store.commit('setGoogleAlbums', allAlbums)
+      this.loadThumbnails = true
+      await this.populateThumbnails(allAlbums)
+      this.loadThumbnails = false
+    },
+    async populateThumbnails(albums) {
+      for (const album of albums) {
+        if (!this.loadThumbnails) {
+          break
+        }
+        const photos = await this.googleFetchPhotos(album)
+        const enrichedThumbnails = album.thumbnails.map((thumbnail, idx) => {
+          console.log(
+            `load thumbnail ${thumbnail.index} in album ${album.title}`
+          )
+          if (photos[idx]) {
+            return {
+              index: thumbnail.index,
+              name: photos[idx].filename,
+              url: photos[idx].baseUrl,
+            }
+          }
+        })
+        this.$store.commit('setGoogleThumbnails', {
+          id: album.id,
+          thumbnails: enrichedThumbnails,
+        })
+      }
+    },
+    async googleFetchPhotos(album) {
+      const photoSearchUrl =
+        'https://photoslibrary.googleapis.com/v1/mediaItems:search'
+      const googleAccessToken = this.$auth.getToken('google')
+      const resp = await fetch(photoSearchUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: googleAccessToken,
+        },
+        body: JSON.stringify({
+          albumId: `${album.id}`,
+          pageSize: 5,
+        }),
+      })
+      if (!resp.ok) {
+        const err = await resp.text()
+        console.error(`Failed to fetch google photo albums: %o`, err)
+        this.$auth.logout()
+      } else {
+        const { mediaItems } = await resp.json()
+        return mediaItems
+      }
     },
   },
 }

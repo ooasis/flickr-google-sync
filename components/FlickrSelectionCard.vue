@@ -1,14 +1,14 @@
 <template>
-  <v-card class="mb-12" color="grey lighten-1" :height="height">
+  <v-card class="mb-12" color="grey lighten-1" :min-height="height">
     <v-card-actions>
-      <v-btn text color="deep-purple accent-4" @click="$emit('input', 1)">
+      <v-btn text color="deep-purple accent-4" @click="moveStep(-1)">
         Previous
       </v-btn>
       <v-btn
         text
         color="deep-purple accent-4"
         :disabled="!albumSelected()"
-        @click="$emit('input', 3)"
+        @click="moveStep(1)"
       >
         Next
       </v-btn>
@@ -40,12 +40,27 @@
         class="elevation-1"
         @item-selected="chooseAlbum"
       >
+        <template v-slot:[`item.id`]="{ item }">
+          <div class="d-flex flex-row">
+            <v-img
+              v-for="thumbnail in item.thumbnails"
+              :key="thumbnail.index"
+              max-height="80"
+              max-width="80"
+              class="ma-2"
+              :src="thumbnail.url"
+            ></v-img>
+          </div>
+        </template>
       </v-data-table>
     </v-card>
   </v-card>
 </template>
 
 <script>
+// const sleep = (ms) => {
+//   return new Promise((resolve) => setTimeout(resolve, ms))
+// }
 export default {
   props: {
     value: {
@@ -66,17 +81,22 @@ export default {
       singleSelect: true,
       headers: [
         {
-          text: 'Name',
+          text: 'Album',
           align: 'start',
-          sortable: false,
+          sortable: true,
           value: 'title',
         },
-        { text: '', value: 'description' },
+        { text: '', align: 'start', sortable: false, value: 'id' },
       ],
       search: null,
+      loadThumbnails: false,
     }
   },
   methods: {
+    moveStep(delta) {
+      this.loadThumbnails = false
+      this.$emit('input', this.value + delta)
+    },
     albumSelected() {
       return !!this.$store.state.flickrPhoto.selected
     },
@@ -84,6 +104,7 @@ export default {
       this.$store.commit('setFlickrAlbum', e.value ? e.item : null)
     },
     async fetchAlbums() {
+      this.loadThumbnails = false
       const { accessToken, accessTokenSecret } = this.$store.state.flickr
       const {
         data: { photoSets },
@@ -91,17 +112,55 @@ export default {
         params: { accessToken, accessTokenSecret },
       })
       console.debug(`Fetched flickr photo sets: %o`, photoSets)
-      this.$store.commit('setFlickrAlbums', photoSets)
+      const albums = photoSets.filter((r) => r.photos > 0)
+      albums.forEach((r) => {
+        r.thumbnails = Array.from({ length: Math.min(r.photos, 5) }).map(
+          (r, index) => {
+            return {
+              index,
+              name: '',
+              url: null,
+            }
+          }
+        )
+      })
+      this.$store.commit('setFlickrAlbums', albums)
+
+      this.loadThumbnails = true
+      await this.populateThumbnails(albums)
+      this.loadThumbnails = false
     },
-    async flickrFetchPhotos() {
+    async populateThumbnails(albums) {
+      for (const album of albums) {
+        if (!this.loadThumbnails) {
+          break
+        }
+        const photos = await this.flickrFetchPhotos(album)
+        const enrichedThumbnails = album.thumbnails.map((thumbnail, idx) => {
+          console.log(
+            `load thumbnail ${thumbnail.index} in album ${album.title}`
+          )
+          return {
+            index: thumbnail.index,
+            name: photos[idx].title,
+            url: photos[idx].url,
+          }
+        })
+        this.$store.commit('setFlickrThumbnails', {
+          id: album.id,
+          thumbnails: enrichedThumbnails,
+        })
+      }
+    },
+    async flickrFetchPhotos(album) {
       const { accessToken, accessTokenSecret } = this.$store.state.flickr
-      const photsets = [this.flickrAlbum.id].join(':')
+      const photsets = album.id
       const flickrUser = this.$store.state.flickr.userId
-      const { data: photos } = await this.$axios.get(`/api/flickr/photos`, {
+      const { data: photosets } = await this.$axios.get(`/api/flickr/photos`, {
         params: { accessToken, accessTokenSecret, photsets, flickrUser },
       })
-      console.debug(`Fetched photos: %o`, photos)
-      return photos
+      console.debug(`Fetched photo sets: %o`, photosets)
+      return photosets[0].photos
     },
   },
 }

@@ -50,4 +50,20 @@ export const mutations = {
     state.googlePhoto.selected = album
     console.debug(`Set google album: ${album}`)
   },
+  setFlickrThumbnails(state, enrichedAlbum) {
+    console.debug(`Set flickr thumbnails: ${enrichedAlbum}`)
+    state.flickrPhoto.albums.forEach((album) => {
+      if (album.id === enrichedAlbum.id) {
+        album.thumbnails = enrichedAlbum.thumbnails
+      }
+    })
+  },
+  setGoogleThumbnails(state, enrichedAlbum) {
+    console.debug(`Set google thumbnails: ${enrichedAlbum}`)
+    state.googlePhoto.albums.forEach((album) => {
+      if (album.id === enrichedAlbum.id) {
+        album.thumbnails = enrichedAlbum.thumbnails
+      }
+    })
+  },
 }
