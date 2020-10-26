@@ -124,14 +124,15 @@ export default {
         } else {
           const { albums, nextPageToken } = await resp.json()
           if (albums) {
-            const albumsThisBatch = albums.map((r) => {
-              return {
-                id: r.id,
-                title: r.title,
-                description: '',
-                photos: r.mediaItemsCount,
-              }
-            })
+            const albumsThisBatch = albums
+              .filter((r) => r.isWriteable)
+              .map((r) => {
+                return {
+                  id: r.id,
+                  title: r.title,
+                  photos: r.mediaItemsCount,
+                }
+              })
             pageToken = nextPageToken
             allAlbums = [...allAlbums, ...albumsThisBatch]
           }
@@ -150,7 +151,7 @@ export default {
       })
       this.$store.commit('setGoogleAlbums', allAlbums)
       this.loadThumbnails = true
-      await this.populateThumbnails(allAlbums)
+      // await this.populateThumbnails(allAlbums)
       this.loadThumbnails = false
     },
     async populateThumbnails(albums) {

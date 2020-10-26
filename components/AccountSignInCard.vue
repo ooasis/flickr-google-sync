@@ -82,7 +82,7 @@ export default {
       }
     },
     flickrLogout() {
-      this.$store.commit('resetFlickrAuthData')
+      this.$store.commit('resetFlickrData')
     },
     async flickrRequestAuth() {
       const {
@@ -114,6 +114,7 @@ export default {
     },
     async googleLogout() {
       await this.$auth.logout()
+      this.$store.commit('resetGoogleData')
     },
     async gapiRequestAuth() {
       await this.$auth.loginWith('google')

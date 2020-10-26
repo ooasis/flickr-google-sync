@@ -86,6 +86,7 @@ export default {
           sortable: true,
           value: 'title',
         },
+        { text: '', align: 'start', sortable: true, value: 'photos' },
         { text: '', align: 'start', sortable: false, value: 'id' },
       ],
       search: null,
@@ -127,7 +128,7 @@ export default {
       this.$store.commit('setFlickrAlbums', albums)
 
       this.loadThumbnails = true
-      await this.populateThumbnails(albums)
+      // await this.populateThumbnails(albums)
       this.loadThumbnails = false
     },
     async populateThumbnails(albums) {
