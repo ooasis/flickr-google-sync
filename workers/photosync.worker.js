@@ -7,7 +7,6 @@ self.addEventListener('message', async (event) => {
 
 const syncIt = async ({
   albumId,
-  albumName,
   photoId,
   photoUrl,
   photoDesc,
@@ -18,13 +17,8 @@ const syncIt = async ({
   const image = await downloadImage(photoUrl)
   const uploadToken = await uploadImage(image, googleAccessToken)
 
-  let targetAlbum = albumId
-  if (!targetAlbum && albumName) {
-    targetAlbum = await createAlbum(albumName, googleAccessToken)
-  }
-
   const newPhotoUrl = await addMediaItem(
-    targetAlbum,
+    albumId,
     uploadToken,
     photoId,
     photoDesc,
@@ -116,29 +110,4 @@ const addMediaItem = async (
   } = result
   console.debug(`Uploaded photo ${mediaItemId} to album: ${albumId}`)
   return photoUrl
-}
-
-const createAlbum = async (albumName, googleAccessToken) => {
-  const googleUrl = 'https://photoslibrary.googleapis.com/v1/albums'
-  const req = {
-    album: {
-      title: albumName,
-    },
-  }
-  const resp = await fetch(googleUrl, {
-    method: 'POST',
-    body: JSON.stringify(req),
-    headers: {
-      Authorization: googleAccessToken,
-      'Content-Type': 'application/json',
-    },
-  })
-  if (!resp.ok) {
-    const err = await resp.text()
-    throw new Error(`Failed to create album: ${err}`)
-  }
-
-  const result = await resp.json()
-  const { id: albumId, isWriteable: isWrittable } = result
-  return isWrittable ? albumId : null
 }

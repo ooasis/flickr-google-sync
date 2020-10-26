@@ -4,55 +4,70 @@
       <v-btn text color="deep-purple accent-4" @click="moveStep(-1)">
         Previous
       </v-btn>
-      <v-btn
-        text
-        color="deep-purple accent-4"
-        :disabled="!albumSelected()"
-        @click="moveStep(1)"
-      >
+      <v-btn text color="deep-purple accent-4" @click="moveStep(1)">
         Next
       </v-btn>
     </v-card-actions>
     <v-card-title>{{ title }}</v-card-title>
 
     <v-card>
-      <v-card-title>
-        <v-btn text color="deep-purple accent-4" @click="fetchAlbums">
-          Load Google Albums
-        </v-btn>
-        <v-spacer></v-spacer>
-        <v-text-field
-          v-model="search"
-          append-icon="mdi-magnify"
-          label="Search"
-          single-line
-          hide-details
-        ></v-text-field>
-      </v-card-title>
-      <v-data-table
-        :headers="headers"
-        :items="$store.state.googlePhoto.albums"
-        :items-per-page="10"
-        :search="search"
-        item-key="id"
-        show-select
-        :single-select="singleSelect"
-        class="elevation-1"
-        @item-selected="chooseAlbum"
+      <v-card-title
+        >Optionally choose a new album or an existing album as
+        destination.</v-card-title
       >
-        <template v-slot:[`item.id`]="{ item }">
-          <div class="d-flex flex-row">
-            <v-img
-              v-for="thumbnail in item.thumbnails.filter((t) => !!t)"
-              :key="thumbnail.index"
-              max-height="80"
-              max-width="80"
-              class="ma-2"
-              :src="thumbnail.url"
-            ></v-img>
-          </div>
-        </template>
-      </v-data-table>
+      <v-container>
+        <v-row>
+          <v-col cols="12">
+            <v-text-field
+              v-model="newAlbum"
+              label="New Album"
+              placeholder="Type in new album name"
+              clearable
+              @input="chooseNewAlbum"
+            ></v-text-field>
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col cols="12">
+            <v-btn text color="deep-purple accent-4" @click="fetchAlbums">
+              Load Google Albums
+            </v-btn>
+            <v-spacer></v-spacer>
+            <v-text-field
+              v-model="search"
+              append-icon="mdi-magnify"
+              label="Search"
+              single-line
+              hide-details
+            ></v-text-field>
+
+            <v-data-table
+              :headers="headers"
+              :items="$store.state.googlePhoto.albums"
+              :items-per-page="10"
+              :search="search"
+              item-key="id"
+              show-select
+              :single-select="singleSelect"
+              class="elevation-1"
+              @item-selected="chooseAlbum"
+            >
+              <template v-slot:[`item.id`]="{ item }">
+                <div class="d-flex flex-row">
+                  <v-img
+                    v-for="thumbnail in item.thumbnails.filter((t) => !!t)"
+                    :key="thumbnail.index"
+                    max-height="80"
+                    max-width="80"
+                    class="ma-2"
+                    :src="thumbnail.url"
+                  ></v-img>
+                </div>
+              </template>
+            </v-data-table>
+          </v-col>
+        </v-row>
+      </v-container>
     </v-card>
   </v-card>
 </template>
@@ -85,6 +100,7 @@ export default {
         },
         { text: '', value: 'id' },
       ],
+      newAlbum: null,
       search: null,
       loadThumbnails: false,
     }
@@ -98,13 +114,20 @@ export default {
       return !!this.$store.state.googlePhoto.selected
     },
     chooseAlbum(e) {
+      this.newAlbum = null
       this.$store.commit('setGoogleAlbum', e.value ? e.item : null)
+    },
+    chooseNewAlbum() {
+      if (this.newAlbum) {
+        this.$store.commit('setGoogleAlbum', this.newAlbum)
+      }
     },
     async fetchAlbums() {
       const albumUrl = 'https://photoslibrary.googleapis.com/v1/albums'
       const googleAccessToken = this.$auth.getToken('google')
       let allAlbums = []
       let pageToken
+      this.newAlbum = null
 
       do {
         let url = albumUrl

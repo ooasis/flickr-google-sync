@@ -15,7 +15,7 @@
     <v-container fluid>
       <v-row class="d-flex justify-center">
         <v-col cols="4">
-          <v-card class="mx-auto" max-width="344" outlined>
+          <v-card class="mx-auto" outlined>
             <v-card-title>{{
               $store.state.flickrPhoto.selected.title
             }}</v-card-title>
@@ -42,7 +42,7 @@
           </v-progress-circular>
         </v-col>
         <v-col cols="4">
-          <v-card class="mx-auto" max-width="344" outlined>
+          <v-card v-if="isGoogleAlbumSelected()" class="mx-auto" outlined>
             <v-card-title>{{
               $store.state.googlePhoto.selected.title
             }}</v-card-title>
@@ -50,6 +50,18 @@
               :src="$store.state.googlePhoto.selected.thumbnails[0].url"
               height="200px"
             ></v-img>
+          </v-card>
+          <v-card
+            v-else-if="isGoogleNewAlbumSelected()"
+            class="mx-auto"
+            outlined
+          >
+            <v-card-title
+              >New album: {{ $store.state.googlePhoto.selected }}</v-card-title
+            >
+          </v-card>
+          <v-card v-else class="mx-auto" outlined>
+            <v-card-title>Sync to Google Photo Library</v-card-title>
           </v-card>
         </v-col>
       </v-row>
@@ -101,22 +113,25 @@ export default {
   },
   methods: {
     readyToSync() {
-      return (
-        this.$store.state.flickrPhoto.selected &&
-        this.$store.state.googlePhoto.selected
-      )
+      return this.$store.state.flickrPhoto.selected
     },
-    sync() {
-      this.inProgress = true
+    isGoogleAlbumSelected() {
+      const selectAlbum = this.$store.state.googlePhoto.selected
+      return selectAlbum && typeof selectAlbum === 'object'
+    },
+    isGoogleNewAlbumSelected() {
+      const selectAlbum = this.$store.state.googlePhoto.selected
+      return selectAlbum && typeof selectAlbum === 'string'
     },
     async syncPhoto() {
       this.inProgress = true
       const worker = this.$worker.createWorker()
-      worker.onmessage = (event) => {
+      worker.onmessage = async (event) => {
         const {
           data: { photoId, newPhotoUrl },
         } = event
         console.debug(`Sync'ed photo: ${photoId} to ${newPhotoUrl} `)
+        await this.sleep(1000)
         this.photos
           .filter((p) => {
             if (p.id === photoId) {
@@ -126,16 +141,24 @@ export default {
               return false
             }
           })
-          .forEach((p) => Vue.set(p, 'loaded', newPhotoUrl))
+          .forEach((p) => Vue.set(p, 'loaded', p.url))
       }
 
+      const googleAccessToken = this.$auth.getToken('google')
+      let albumId
+      const selectAlbum = this.$store.state.googlePhoto.selected
+      if (selectAlbum) {
+        if (typeof selectAlbum === 'string') {
+          albumId = await this.createAlbum(selectAlbum)
+        } else if (typeof selectAlbum === 'object') {
+          albumId = selectAlbum.id
+        }
+      }
       const album = this.$store.state.flickrPhoto.selected
       this.photos = await this.flickrFetchPhotos(album)
       for (const photo of this.photos) {
-        const googleAccessToken = this.$auth.getToken('google')
         worker.postMessage({
-          albumId: this.$store.state.googlePhoto.selected.id,
-          albumName: null,
+          albumId,
           photoId: photo.id,
           photoUrl: photo.url,
           photoDesc: photo.title,
@@ -152,6 +175,34 @@ export default {
       })
       console.debug(`Fetched photo sets: %o`, photosets)
       return photosets[0].photos
+    },
+    async createAlbum(albumName) {
+      const googleUrl = 'https://photoslibrary.googleapis.com/v1/albums'
+      const googleAccessToken = this.$auth.getToken('google')
+      const req = {
+        album: {
+          title: albumName,
+        },
+      }
+      const resp = await fetch(googleUrl, {
+        method: 'POST',
+        body: JSON.stringify(req),
+        headers: {
+          Authorization: googleAccessToken,
+          'Content-Type': 'application/json',
+        },
+      })
+      if (!resp.ok) {
+        const err = await resp.text()
+        throw new Error(`Failed to create album: ${err}`)
+      }
+
+      const result = await resp.json()
+      const { id: albumId, isWriteable: isWrittable } = result
+      return isWrittable ? albumId : null
+    },
+    sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms))
     },
   },
 }
