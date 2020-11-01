@@ -30,7 +30,11 @@
 
             <v-stepper-items>
               <v-stepper-content step="1">
-                <account-sign-in-card v-model="curStep" title="Sign In" />
+                <account-sign-in-card
+                  v-model="curStep"
+                  title="Sign In"
+                  height="600"
+                />
               </v-stepper-content>
 
               <v-stepper-content step="2">

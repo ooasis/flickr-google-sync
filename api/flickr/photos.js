@@ -26,16 +26,16 @@ export default async function (req, res, next) {
         photoset_id: photosetId,
         user_id: flickrUser,
         media: 'photo',
-        extras: 'url_o',
+        extras: 'url_o,url_t',
       })
 
       console.debug(
         `Returned ${resp.total} photos for photo set ${resp.title} (max: ${resp.perpage})`
       )
       const photos = resp.photo.map((photo) => {
-        const { id, title, url_o: url } = photo
+        const { id, title, url_o: url, url_t: turl } = photo
 
-        return { id, title, url }
+        return { id, title, url, turl }
       })
 
       return { photosetId, photos }

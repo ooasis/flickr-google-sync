@@ -1,11 +1,69 @@
 <template>
-  <v-card class="mb-12" color="grey lighten-1" :min-height="height">
-    <v-card-actions>
-      <v-btn text color="deep-purple accent-4" @click="moveStep(-1)">
+  <v-card
+    class="d-flex flex-column mb-12"
+    color="grey lighten-1"
+    :min-height="height"
+  >
+    <v-card-title>{{ title }}</v-card-title>
+    <v-row class="mx-4">
+      <v-col cols="4">
+        <v-text-field
+          v-model="search"
+          append-icon="mdi-magnify"
+          label="Search"
+          single-line
+          dense
+        ></v-text-field>
+      </v-col>
+      <v-col cols="4">
+        <v-btn @click="fetchAlbums"> Load Flickr Albums </v-btn>
+      </v-col>
+      <v-col cols="4">
+        <v-chip
+          v-if="albumSelected()"
+          color="teal"
+          close
+          text-color="white"
+          @click:close="chooseAlbum"
+        >
+          <v-avatar left>
+            <v-icon>mdi-checkbox-marked-circle</v-icon>
+          </v-avatar>
+          {{ selectedAlbumName() }}
+        </v-chip>
+      </v-col>
+    </v-row>
+    <v-data-table
+      v-model="selectedAlbum"
+      :headers="headers"
+      :items="$store.state.flickrPhoto.albums"
+      :items-per-page="10"
+      :search="search"
+      item-key="id"
+      show-select
+      :single-select="singleSelect"
+      class="elevation-1"
+      @item-selected="chooseAlbum"
+    >
+      <template v-slot:[`item.id`]="{ item }">
+        <div class="d-flex flex-row">
+          <v-img
+            v-for="thumbnail in item.thumbnails"
+            :key="thumbnail.index"
+            max-height="80"
+            max-width="80"
+            class="ma-2"
+            :src="thumbnail.url"
+          ></v-img>
+        </div>
+      </template>
+    </v-data-table>
+    <v-spacer class="flex-grow-1"></v-spacer>
+    <v-card-actions class="pa-4">
+      <v-btn color="deep-purple accent-4" @click="moveStep(-1)">
         Previous
       </v-btn>
       <v-btn
-        text
         color="deep-purple accent-4"
         :disabled="!albumSelected()"
         @click="moveStep(1)"
@@ -13,47 +71,6 @@
         Next
       </v-btn>
     </v-card-actions>
-    <v-card-title>{{ title }}</v-card-title>
-
-    <v-card>
-      <v-card-title>
-        <v-btn text color="deep-purple accent-4" @click="fetchAlbums">
-          Load Flickr Albums
-        </v-btn>
-        <v-spacer></v-spacer>
-        <v-text-field
-          v-model="search"
-          append-icon="mdi-magnify"
-          label="Search"
-          single-line
-          hide-details
-        ></v-text-field>
-      </v-card-title>
-      <v-data-table
-        :headers="headers"
-        :items="$store.state.flickrPhoto.albums"
-        :items-per-page="10"
-        :search="search"
-        item-key="id"
-        show-select
-        :single-select="singleSelect"
-        class="elevation-1"
-        @item-selected="chooseAlbum"
-      >
-        <template v-slot:[`item.id`]="{ item }">
-          <div class="d-flex flex-row">
-            <v-img
-              v-for="thumbnail in item.thumbnails"
-              :key="thumbnail.index"
-              max-height="80"
-              max-width="80"
-              class="ma-2"
-              :src="thumbnail.url"
-            ></v-img>
-          </div>
-        </template>
-      </v-data-table>
-    </v-card>
   </v-card>
 </template>
 
@@ -79,6 +96,7 @@ export default {
   data() {
     return {
       singleSelect: true,
+      selectedAlbum: [],
       headers: [
         {
           text: 'Album',
@@ -86,7 +104,7 @@ export default {
           sortable: true,
           value: 'title',
         },
-        { text: '', align: 'start', sortable: true, value: 'photos' },
+        { text: '#', align: 'start', sortable: true, value: 'photos' },
         { text: '', align: 'start', sortable: false, value: 'id' },
       ],
       search: null,
@@ -101,8 +119,16 @@ export default {
     albumSelected() {
       return !!this.$store.state.flickrPhoto.selected
     },
+    selectedAlbumName() {
+      return this.albumSelected()
+        ? this.$store.state.flickrPhoto.selected.title
+        : 'Not yet selected'
+    },
     chooseAlbum(e) {
-      this.$store.commit('setFlickrAlbum', e.value ? e.item : null)
+      if (!e) {
+        this.selectedAlbum = []
+      }
+      this.$store.commit('setFlickrAlbum', e && e.value ? e.item : null)
     },
     async fetchAlbums() {
       this.loadThumbnails = false
@@ -128,7 +154,7 @@ export default {
       this.$store.commit('setFlickrAlbums', albums)
 
       this.loadThumbnails = true
-      // await this.populateThumbnails(albums)
+      await this.populateThumbnails(albums)
       this.loadThumbnails = false
     },
     async populateThumbnails(albums) {
@@ -144,7 +170,7 @@ export default {
           return {
             index: thumbnail.index,
             name: photos[idx].title,
-            url: photos[idx].url,
+            url: photos[idx].turl,
           }
         })
         this.$store.commit('setFlickrThumbnails', {

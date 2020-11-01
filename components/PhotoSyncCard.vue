@@ -141,7 +141,7 @@ export default {
               return false
             }
           })
-          .forEach((p) => Vue.set(p, 'loaded', p.url))
+          .forEach((p) => Vue.set(p, 'loaded', p.turl))
       }
 
       const googleAccessToken = this.$auth.getToken('google')

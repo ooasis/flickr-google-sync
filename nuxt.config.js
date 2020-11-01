@@ -77,13 +77,13 @@ export default {
     baseURL: process.env.API_URL,
   },
   auth: {
+    resetOnError: true,
     redirect: {
       callback: `/auth/google/verify`,
     },
     strategies: {
       google: {
         scope: ['https://www.googleapis.com/auth/photoslibrary', 'profile'],
-        // endpoints: { logout: `/auth/google/logout` },
         client_id:
           '609737535508-8i8ucl7kd5qn0jmtv524t7mvbe13trrl.apps.googleusercontent.com',
       },
