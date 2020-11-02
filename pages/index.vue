@@ -47,7 +47,7 @@
               <v-stepper-content step="3">
                 <google-photo-selection-card
                   v-model="curStep"
-                  title="Choose Google Photo Album"
+                  title="Choose Google Photo Album (optional)"
                 />
               </v-stepper-content>
 

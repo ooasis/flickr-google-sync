@@ -5,32 +5,20 @@
     :min-height="height"
   >
     <v-card-title>{{ title }}</v-card-title>
-    <v-row class="mx-4">
-      <v-col cols="4">
+    <v-row class="mx-4 flex-grow-0">
+      <v-col cols="6">
         <v-text-field
           v-model="search"
           append-icon="mdi-magnify"
           label="Search"
           single-line
           dense
+          clearable
+          @input="typeAlbumName"
         ></v-text-field>
       </v-col>
       <v-col cols="4">
         <v-btn @click="fetchAlbums"> Load Flickr Albums </v-btn>
-      </v-col>
-      <v-col cols="4">
-        <v-chip
-          v-if="albumSelected()"
-          color="teal"
-          close
-          text-color="white"
-          @click:close="chooseAlbum"
-        >
-          <v-avatar left>
-            <v-icon>mdi-checkbox-marked-circle</v-icon>
-          </v-avatar>
-          {{ selectedAlbumName() }}
-        </v-chip>
       </v-col>
     </v-row>
     <v-data-table
@@ -40,9 +28,10 @@
       :items-per-page="10"
       :search="search"
       item-key="id"
-      show-select
+      :page.sync="curPage"
       :single-select="singleSelect"
       class="elevation-1"
+      show-select
       @item-selected="chooseAlbum"
     >
       <template v-slot:[`item.id`]="{ item }">
@@ -95,6 +84,7 @@ export default {
   },
   data() {
     return {
+      curPage: 1,
       singleSelect: true,
       selectedAlbum: [],
       headers: [
@@ -111,24 +101,44 @@ export default {
       loadThumbnails: false,
     }
   },
+  mounted() {
+    const selected = this.$store.state.flickrPhoto.selected
+    this.selectedAlbum = selected ? [selected] : []
+    this.search = selected ? selected.title : null
+  },
   methods: {
     moveStep(delta) {
-      this.loadThumbnails = false
+      this.$store.commit(
+        'setFlickrAlbum',
+        this.albumSelected() ? this.selectedAlbum[0] : null
+      )
       this.$emit('input', this.value + delta)
     },
     albumSelected() {
-      return !!this.$store.state.flickrPhoto.selected
+      return this.selectedAlbum.length > 0
     },
     selectedAlbumName() {
-      return this.albumSelected()
-        ? this.$store.state.flickrPhoto.selected.title
-        : 'Not yet selected'
+      return this.albumSelected() ? this.selectedAlbum[0].title : null
     },
     chooseAlbum(e) {
-      if (!e) {
+      if (e && e.value) {
+        this.selectedAlbum = [e.item]
+        this.curPage = 1
+      } else {
         this.selectedAlbum = []
       }
-      this.$store.commit('setFlickrAlbum', e && e.value ? e.item : null)
+      this.search = this.selectedAlbumName()
+    },
+    typeAlbumName() {
+      if (this.search) {
+        for (const b of this.$store.state.flickrPhoto.albums) {
+          if (b.title.toLowerCase() === this.search.toLowerCase) {
+            this.selectedAlbum = [b]
+            return
+          }
+        }
+      }
+      this.selectedAlbum = []
     },
     async fetchAlbums() {
       this.loadThumbnails = false
@@ -164,9 +174,6 @@ export default {
         }
         const photos = await this.flickrFetchPhotos(album)
         const enrichedThumbnails = album.thumbnails.map((thumbnail, idx) => {
-          console.log(
-            `load thumbnail ${thumbnail.index} in album ${album.title}`
-          )
           return {
             index: thumbnail.index,
             name: photos[idx].title,

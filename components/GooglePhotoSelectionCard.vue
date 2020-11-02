@@ -1,74 +1,65 @@
 <template>
-  <v-card class="mb-12" color="grey lighten-1" :min-height="height">
-    <v-card-actions>
-      <v-btn text color="deep-purple accent-4" @click="moveStep(-1)">
+  <v-card
+    class="d-flex flex-column mb-12"
+    color="grey lighten-1"
+    :min-height="height"
+  >
+    <v-card-title>{{ title }}</v-card-title>
+    <v-container>
+      <v-row class="mx-4">
+        <v-col cols="6">
+          <v-text-field
+            v-model="search"
+            append-icon="mdi-magnify"
+            label="Search"
+            single-line
+            dense
+            clearable
+            @input="typeAlbumName"
+          ></v-text-field>
+        </v-col>
+        <v-col cols="4">
+          <v-btn @click="fetchAlbums"> Load Google Albums </v-btn>
+        </v-col>
+      </v-row>
+      <v-row>
+        <v-col cols="12">
+          <v-data-table
+            v-model="selectedAlbum"
+            :headers="headers"
+            :items="$store.state.googlePhoto.albums"
+            :items-per-page="10"
+            :page.sync="curPage"
+            :search="search"
+            :single-select="singleSelect"
+            item-key="id"
+            show-select
+            class="elevation-1 flex-grow-1"
+            @item-selected="chooseAlbum"
+          >
+            <template v-slot:[`item.id`]="{ item }">
+              <div class="d-flex flex-row">
+                <v-img
+                  v-for="thumbnail in item.thumbnails.filter((t) => !!t)"
+                  :key="thumbnail.index"
+                  max-height="80"
+                  max-width="80"
+                  class="ma-2"
+                  :src="thumbnail.url"
+                ></v-img>
+              </div>
+            </template>
+          </v-data-table>
+        </v-col>
+      </v-row>
+    </v-container>
+    <v-spacer></v-spacer>
+    <v-card-actions class="pa-4">
+      <v-btn color="deep-purple accent-4" @click="moveStep(-1)">
         Previous
       </v-btn>
-      <v-btn text color="deep-purple accent-4" @click="moveStep(1)">
-        Next
-      </v-btn>
+      <v-btn color="deep-purple accent-4" @click="moveStep(1)"> Next </v-btn>
     </v-card-actions>
-    <v-card-title>{{ title }}</v-card-title>
-
-    <v-card>
-      <v-card-title
-        >Optionally choose a new album or an existing album as
-        destination.</v-card-title
-      >
-      <v-container>
-        <v-row>
-          <v-col cols="12">
-            <v-text-field
-              v-model="newAlbum"
-              label="New Album"
-              placeholder="Type in new album name"
-              clearable
-              @input="chooseNewAlbum"
-            ></v-text-field>
-          </v-col>
-        </v-row>
-        <v-row>
-          <v-col cols="12">
-            <v-btn text color="deep-purple accent-4" @click="fetchAlbums">
-              Load Google Albums
-            </v-btn>
-            <v-spacer></v-spacer>
-            <v-text-field
-              v-model="search"
-              append-icon="mdi-magnify"
-              label="Search"
-              single-line
-              hide-details
-            ></v-text-field>
-
-            <v-data-table
-              :headers="headers"
-              :items="$store.state.googlePhoto.albums"
-              :items-per-page="10"
-              :search="search"
-              item-key="id"
-              show-select
-              :single-select="singleSelect"
-              class="elevation-1"
-              @item-selected="chooseAlbum"
-            >
-              <template v-slot:[`item.id`]="{ item }">
-                <div class="d-flex flex-row">
-                  <v-img
-                    v-for="thumbnail in item.thumbnails.filter((t) => !!t)"
-                    :key="thumbnail.index"
-                    max-height="80"
-                    max-width="80"
-                    class="ma-2"
-                    :src="thumbnail.url"
-                  ></v-img>
-                </div>
-              </template>
-            </v-data-table>
-          </v-col>
-        </v-row>
-      </v-container>
-    </v-card>
   </v-card>
 </template>
 
@@ -90,7 +81,10 @@ export default {
   },
   data() {
     return {
+      curPage: 1,
       singleSelect: true,
+      selectedAlbum: [],
+      newAlbum: null,
       headers: [
         {
           text: 'Name',
@@ -100,27 +94,54 @@ export default {
         },
         { text: '', value: 'id' },
       ],
-      newAlbum: null,
       search: null,
       loadThumbnails: false,
     }
   },
+  mounted() {
+    const selected = this.$store.state.googlePhoto.selected
+    if (selected) {
+      if (typeof selected === 'object') {
+        this.selectedAlbum = [selected]
+        this.search = selected.title
+      } else if (typeof selected === 'string') {
+        this.search = selected
+      }
+    }
+  },
   methods: {
     moveStep(delta) {
-      this.loadThumbnails = false
+      this.$store.commit(
+        'setGoogleAlbum',
+        this.albumSelected() ? this.selectedAlbum[0] : this.search
+      )
       this.$emit('input', this.value + delta)
     },
     albumSelected() {
-      return !!this.$store.state.googlePhoto.selected
+      return this.selectedAlbum.length > 0
+    },
+    selectedAlbumName() {
+      return this.albumSelected() ? this.selectedAlbum[0].title : null
     },
     chooseAlbum(e) {
-      this.newAlbum = null
-      this.$store.commit('setGoogleAlbum', e.value ? e.item : null)
-    },
-    chooseNewAlbum() {
-      if (this.newAlbum) {
-        this.$store.commit('setGoogleAlbum', this.newAlbum)
+      if (e && e.value) {
+        this.selectedAlbum = [e.item]
+        this.curPage = 1
+      } else {
+        this.selectedAlbum = []
       }
+      this.search = this.selectedAlbumName()
+    },
+    typeAlbumName() {
+      if (this.search) {
+        for (const b of this.$store.state.googlePhoto.albums) {
+          if (b.title.toLowerCase() === this.search.toLowerCase) {
+            this.selectedAlbum = [b]
+            return
+          }
+        }
+      }
+      this.selectedAlbum = []
     },
     async fetchAlbums() {
       const albumUrl = 'https://photoslibrary.googleapis.com/v1/albums'
