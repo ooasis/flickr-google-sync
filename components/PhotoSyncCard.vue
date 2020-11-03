@@ -1,71 +1,30 @@
 <template>
   <v-card
     v-if="readyToSync()"
-    class="mb-12"
+    class="d-flex flex-column mb-12"
     color="grey lighten-1"
     :min-height="height"
   >
-    <v-card-actions>
-      <v-btn text color="deep-purple accent-4" @click="$emit('input', 3)">
-        Previous
-      </v-btn>
-    </v-card-actions>
     <v-card-title>{{ title }}</v-card-title>
+    <v-card-actions class="d-flex justify-start px-6">
+      {{ header() }}
+      <v-btn class="mx-6" @click="syncPhoto"> Sync </v-btn>
+    </v-card-actions>
 
     <v-container fluid>
-      <v-row class="d-flex justify-center">
-        <v-col cols="4">
-          <v-card class="mx-auto" outlined>
-            <v-card-title>{{
-              $store.state.flickrPhoto.selected.title
-            }}</v-card-title>
-            <v-img
-              :src="$store.state.flickrPhoto.selected.thumbnails[0].url"
-              height="200px"
-            ></v-img>
-          </v-card>
-        </v-col>
-        <v-col cols="4" class="d-flex flex-column align-center py-5">
-          <v-btn color="deep-purple accent-4" @click="syncPhoto">
-            Start Sync!
-          </v-btn>
-          <v-progress-circular
-            v-if="inProgress"
-            :rotate="360"
-            :value="35"
-            :size="100"
-            :width="15"
+      <v-row class="d-flex px-6">
+        <v-col cols="12">
+          <v-progress-linear
+            v-model="syncProgress"
+            :height="20"
             color="teal"
-            class="flex-grow-1"
+            striped
           >
-            {{ $store.state.flickrPhoto.selected.photos }}
-          </v-progress-circular>
-        </v-col>
-        <v-col cols="4">
-          <v-card v-if="isGoogleAlbumSelected()" class="mx-auto" outlined>
-            <v-card-title>{{
-              $store.state.googlePhoto.selected.title
-            }}</v-card-title>
-            <v-img
-              :src="$store.state.googlePhoto.selected.thumbnails[0].url"
-              height="200px"
-            ></v-img>
-          </v-card>
-          <v-card
-            v-else-if="isGoogleNewAlbumSelected()"
-            class="mx-auto"
-            outlined
-          >
-            <v-card-title
-              >New album: {{ $store.state.googlePhoto.selected }}</v-card-title
-            >
-          </v-card>
-          <v-card v-else class="mx-auto" outlined>
-            <v-card-title>Sync to Google Photo Library</v-card-title>
-          </v-card>
+            {{ syncProgress }}
+          </v-progress-linear>
         </v-col>
       </v-row>
-      <v-row v-if="inProgress" class="d-flex">
+      <v-row class="d-flex">
         <v-col
           v-for="p in photos"
           :key="p.id"
@@ -85,6 +44,10 @@
         </v-col>
       </v-row>
     </v-container>
+    <v-spacer class="flex-grow-1"></v-spacer>
+    <v-card-actions>
+      <v-btn @click="$emit('input', 3)"> Previous </v-btn>
+    </v-card-actions>
   </v-card>
 </template>
 <script>
@@ -108,42 +71,52 @@ export default {
   data() {
     return {
       inProgress: false,
+      syncQueue: [],
+      syncCount: 0,
+      syncProgress: 0,
       photos: [],
+      worker: null,
+    }
+  },
+  mounted() {
+    this.worker = this.$worker.createWorker()
+    this.worker.onmessage = async (event) => {
+      try {
+        const {
+          data: { photoId, newPhotoUrl },
+        } = event
+        console.debug(`Sync'ed photo: ${photoId} to ${newPhotoUrl} `)
+        await this.sleep(5000)
+        this.syncCount += 1
+        this.syncProgress = Math.floor(
+          (this.syncCount * 100) / this.$store.state.flickrPhoto.selected.photos
+        )
+        this.photos
+          .filter((p) => p.id === photoId)
+          .forEach((p) => Vue.set(p, 'loaded', p.turl))
+      } catch (err) {
+        console.error(`Failed to sync one photo: ${err}`)
+      } finally {
+        this.processSyncQueue()
+      }
     }
   },
   methods: {
     readyToSync() {
       return this.$store.state.flickrPhoto.selected
     },
-    isGoogleAlbumSelected() {
-      const selectAlbum = this.$store.state.googlePhoto.selected
-      return selectAlbum && typeof selectAlbum === 'object'
-    },
-    isGoogleNewAlbumSelected() {
-      const selectAlbum = this.$store.state.googlePhoto.selected
-      return selectAlbum && typeof selectAlbum === 'string'
+    header() {
+      const source = this.$store.state.flickrPhoto.selected
+      const target = this.$store.state.googlePhoto.selected
+      const targetAlbum = target
+        ? typeof target === 'object'
+          ? `${target.title}`
+          : `${target}`
+        : 'Google Photo'
+      return `${source.title}(${source.photos}) -> ${targetAlbum}`
     },
     async syncPhoto() {
       this.inProgress = true
-      const worker = this.$worker.createWorker()
-      worker.onmessage = async (event) => {
-        const {
-          data: { photoId, newPhotoUrl },
-        } = event
-        console.debug(`Sync'ed photo: ${photoId} to ${newPhotoUrl} `)
-        await this.sleep(1000)
-        this.photos
-          .filter((p) => {
-            if (p.id === photoId) {
-              console.log(`Uploaded photo ${photoId}`)
-              return true
-            } else {
-              return false
-            }
-          })
-          .forEach((p) => Vue.set(p, 'loaded', p.turl))
-      }
-
       const googleAccessToken = this.$auth.getToken('google')
       let albumId
       const selectAlbum = this.$store.state.googlePhoto.selected
@@ -156,14 +129,22 @@ export default {
       }
       const album = this.$store.state.flickrPhoto.selected
       this.photos = await this.flickrFetchPhotos(album)
-      for (const photo of this.photos) {
-        worker.postMessage({
+      this.syncQueue = this.photos.map((photo) => {
+        return {
           albumId,
           photoId: photo.id,
           photoUrl: photo.url,
           photoDesc: photo.title,
           googleAccessToken,
-        })
+        }
+      })
+      this.processSyncQueue()
+    },
+    processSyncQueue() {
+      if (this.syncQueue.length > 0) {
+        this.worker.postMessage(this.syncQueue.shift())
+      } else {
+        this.inProgress = false
       }
     },
     async flickrFetchPhotos(album) {

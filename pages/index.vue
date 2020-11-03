@@ -77,7 +77,7 @@ export default {
   },
   data() {
     return {
-      curStep: 1,
+      curStep: 4,
     }
   },
 }
