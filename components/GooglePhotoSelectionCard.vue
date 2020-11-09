@@ -203,7 +203,7 @@ export default {
         if (!this.loadThumbnails) {
           break
         }
-        const photos = await this.googleFetchPhotos(album)
+        const photos = await this.googleFetchThumbnails(album)
         const enrichedThumbnails = album.thumbnails.map((thumbnail, idx) => {
           console.log(
             `load thumbnail ${thumbnail.index} in album ${album.title}`
@@ -222,7 +222,7 @@ export default {
         })
       }
     },
-    async googleFetchPhotos(album) {
+    async googleFetchThumbnails(album) {
       const photoSearchUrl =
         'https://photoslibrary.googleapis.com/v1/mediaItems:search'
       const googleAccessToken = this.$auth.getToken('google')

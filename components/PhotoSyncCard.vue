@@ -115,29 +115,46 @@ export default {
         : 'Google Photo'
       return `${source.title}(${source.photos}) -> ${targetAlbum}`
     },
-    async syncPhoto() {
-      this.inProgress = true
-      const googleAccessToken = this.$auth.getToken('google')
-      let albumId
+    async getGoogleAlbumId() {
       const selectAlbum = this.$store.state.googlePhoto.selected
       if (selectAlbum) {
         if (typeof selectAlbum === 'string') {
-          albumId = await this.createAlbum(selectAlbum)
+          return await this.createAlbum(selectAlbum)
         } else if (typeof selectAlbum === 'object') {
-          albumId = selectAlbum.id
+          return selectAlbum.id
         }
       }
+    },
+    async syncPhoto() {
+      this.inProgress = true
+      const googleAccessToken = this.$auth.getToken('google')
+      const googleAlbumId = await this.getGoogleAlbumId()
       const album = this.$store.state.flickrPhoto.selected
+      const existingPhotos = await this.googleFetchPhotos()
       this.photos = await this.flickrFetchPhotos(album)
-      this.syncQueue = this.photos.map((photo) => {
-        return {
-          albumId,
-          photoId: photo.id,
-          photoUrl: photo.url,
-          photoDesc: photo.title,
-          googleAccessToken,
-        }
-      })
+
+      this.photos
+        .filter((p) => existingPhotos.includes(p.id))
+        .forEach((p) => {
+          this.syncCount += 1
+          this.syncProgress = Math.floor(
+            (this.syncCount * 100) /
+              this.$store.state.flickrPhoto.selected.photos
+          )
+          Vue.set(p, 'loaded', p.turl)
+        })
+
+      this.syncQueue = this.photos
+        .filter((p) => !existingPhotos.includes(p.id))
+        .map((photo) => {
+          return {
+            googleAlbumId,
+            photoId: photo.id,
+            photoUrl: photo.url,
+            photoDesc: photo.title,
+            googleAccessToken,
+          }
+        })
       this.processSyncQueue()
     },
     processSyncQueue() {
@@ -146,6 +163,70 @@ export default {
       } else {
         this.inProgress = false
       }
+    },
+    async googleFetchPhotos() {
+      const photoSearchUrl =
+        'https://photoslibrary.googleapis.com/v1/mediaItems:search'
+      const googleAccessToken = this.$auth.getToken('google')
+      let allPhotos = []
+      let pageToken
+
+      const googleAlbumId = await this.getGoogleAlbumId()
+      let filter
+      if (googleAlbumId) {
+        filter = {
+          pageSize: 100,
+          albumId: googleAlbumId,
+        }
+      } else {
+        filter = {
+          pageSize: 100,
+          filters: {
+            excludeNonAppCreatedData: true,
+            mediaTypeFilter: {
+              mediaTypes: ['PHOTO'],
+            },
+          },
+        }
+      }
+      do {
+        let url = photoSearchUrl
+        if (pageToken) {
+          url = `${url}?pageToken=${pageToken}`
+        }
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: googleAccessToken,
+          },
+          body: JSON.stringify(filter),
+        })
+
+        if (!resp.ok) {
+          const err = await resp.text()
+          console.error(`Failed to fetch google photos : %o`, err)
+          this.$auth.logout()
+          break
+        } else {
+          const { mediaItems, nextPageToken } = await resp.json()
+          if (mediaItems) {
+            pageToken = nextPageToken
+            allPhotos = [...allPhotos, ...mediaItems]
+          }
+          if (allPhotos.length >= 200) {
+            break
+          }
+        }
+      } while (pageToken)
+      console.debug(`Fetch raw google photo: ${allPhotos.length}`)
+      return allPhotos
+        .map((m) => {
+          const attr = m.filename.match(/flickr_(\d+).*/)
+          if (attr) {
+            return attr[1]
+          }
+        })
+        .filter((p) => !!p)
     },
     async flickrFetchPhotos(album) {
       const { accessToken, accessTokenSecret } = this.$store.state.flickr
